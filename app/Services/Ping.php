@@ -14,7 +14,7 @@ class Ping
         $output = array();
         $status = null;
 
-        exec("ping " . escapeshellarg($ip) . " 2>&1", $output, $status);
+        exec("ping -c 4 " . escapeshellarg($ip) . " 2>&1", $output, $status);
 
         return $status === 0;
     }
