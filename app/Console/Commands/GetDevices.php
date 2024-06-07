@@ -49,9 +49,9 @@ class GetDevices extends Command
             if ($blackbox_device->systemName == 'pi-monitor' ){
 
                 Device::updateOrCreate(
-                    ['deviceId', $device->identification->id],
+                    ['deviceId' => $device->identification->id],
                     [
-//                        'deviceId' => $device->identification->id,
+                        'deviceId' => $device->identification->id,
                         'siteId' => $blackbox_device->siteId,
                         'status' => $device->overview->status == 'active' ? 1 : 0,
                         'ipAddress' => $device->ipAddress,
