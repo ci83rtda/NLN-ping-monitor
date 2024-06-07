@@ -32,6 +32,7 @@ class TestPing extends Command
         $process->run();
         $this->info('Output: '.$process->getOutput());
         $this->info('isSuccessful:  '.$process->isSuccessful());
+        $this->info('IP:  '.escapeshellarg($ip));
 
     }
 }
