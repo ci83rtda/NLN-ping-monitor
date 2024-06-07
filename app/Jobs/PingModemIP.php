@@ -74,7 +74,7 @@ class PingModemIP implements ShouldQueue
                         "name" => "eth1",
                         "mac" => $device->macAddress,
                         "type" => "eth",
-                        "addresses" => $device->cirdIpAddress
+                        "addresses" => $device->cidrIpAddress
                     ]
                 ]
             ];
