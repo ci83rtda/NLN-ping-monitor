@@ -33,7 +33,7 @@ class PingDevices extends Command
 //         $devices = Device::where('ipAddress', '172.16.42.6')->get();
 
          foreach ($devices as $device){
-             PingModemIP::dispatch($device->ipAddress, $device->toArray())->onQueue('pinging');
+             PingModemIP::dispatch($device->ipAddress, $device->toArray())->onQueue('pinging')->onQueue('monitor');
          }
         $this->info("All Set!");
     }
