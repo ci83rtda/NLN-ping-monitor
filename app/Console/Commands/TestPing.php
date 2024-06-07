@@ -29,9 +29,7 @@ class TestPing extends Command
         $ip = $this->ask('What is your IP?');
 
         $process = new Process(["/usr/bin/ping", "-c 1", $ip]);
-
         $process->run();
-        dd($process);
         $this->info('Output: '.$process->getOutput());
         $this->info('isSuccessful:  '.$process->isSuccessful());
         $this->info('IP:  '.$ip);
