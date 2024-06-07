@@ -56,7 +56,7 @@ class GetDevices extends Command
                         'status' => $device->overview->status == 'active' ? 1 : 0,
                         'ipAddress' => $device->ipAddress,
                         'cidrIpAddress' => $blackbox_device->interfaces[0]->addresses,
-                        'macAddress' => $device->macAddress,
+                        'macAddress' => $blackbox_device->macAddress,
                         'hostname' => $blackbox_device->hostname,
                         'modelName' => $blackbox_device->modelName,
                         'vendorName' => $blackbox_device->vendorName,
