@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use Symfony\Component\Process\Process;
+
 class Ping
 {
 
@@ -14,9 +16,14 @@ class Ping
         $output = array();
         $status = null;
 
-        exec("ping -c 4 " . escapeshellarg($ip) . " 2>&1", $output, $status);
+        $process = new Process(["/sbin/ping", "-c 1", escapeshellarg($ip)]);
+        $process->run();
 
-        return $status === 0;
+        return $process->isSuccessful();
+
+//        exec("ping -c 4 " . escapeshellarg($ip) . " 2>&1", $output, $status);
+//
+//        return $status === 0;
     }
 
 }

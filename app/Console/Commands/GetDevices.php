@@ -45,23 +45,42 @@ class GetDevices extends Command
             $blackbox_device = json_decode($response->getBody()->getContents());
 
             $this->info($device->identification->id);
+            //!Device::where('deviceId', $device->identification->id)->count() && // removed from the if statement
+            if ($blackbox_device->systemName == 'pi-monitor' ){
 
-            if (!Device::where('deviceId', $device->identification->id)->count() && $blackbox_device->systemName == 'pi-monitor' ){
-                $faker = Factory::create();
-                Device::create([
-                    'deviceId' => $device->identification->id,
-                    'siteId' => $blackbox_device->siteId,
-                    'status' => $device->overview->status == 'active' ? 1 : 0,
-                    'ipAddress' => $device->ipAddress,
-                    'macAddress' => strtolower($faker->macAddress()),
-                    'hostname' => $blackbox_device->hostname,
-                    'modelName' => $blackbox_device->modelName,
-                    'vendorName' => $blackbox_device->vendorName,
-                    'deviceRole' => $blackbox_device->deviceRole,
-                    'pingEnabled' => $blackbox_device->pingEnabled,
+                Device::updateOrCreate(
+                    ['deviceId', $device->identification->id],
+                    [
+                        'deviceId' => $device->identification->id,
+                        'siteId' => $blackbox_device->siteId,
+                        'status' => $device->overview->status == 'active' ? 1 : 0,
+                        'ipAddress' => $device->ipAddress,
+                        'cidrIpAddress' => $blackbox_device->interfaces[0]->addresses,
+                        'macAddress' => $device->macAddress,
+                        'hostname' => $blackbox_device->hostname,
+                        'modelName' => $blackbox_device->modelName,
+                        'vendorName' => $blackbox_device->vendorName,
+                        'deviceRole' => $blackbox_device->deviceRole,
+                        'pingEnabled' => $blackbox_device->pingEnabled,
+                    ]
+                );
 
 
-                ]);
+//                $faker = Factory::create();
+//                Device::create([
+//                    'deviceId' => $device->identification->id,
+//                    'siteId' => $blackbox_device->siteId,
+//                    'status' => $device->overview->status == 'active' ? 1 : 0,
+//                    'ipAddress' => $device->ipAddress,
+//                    'macAddress' => strtolower($faker->macAddress()),
+//                    'hostname' => $blackbox_device->hostname,
+//                    'modelName' => $blackbox_device->modelName,
+//                    'vendorName' => $blackbox_device->vendorName,
+//                    'deviceRole' => $blackbox_device->deviceRole,
+//                    'pingEnabled' => $blackbox_device->pingEnabled,
+//
+//
+//                ]);
                 $this->info("added");
             }
 

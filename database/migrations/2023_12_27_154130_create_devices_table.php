@@ -14,8 +14,9 @@ return new class extends Migration {
             $table->unsignedTinyInteger('status')->default(0);
             $table->unsignedTinyInteger('pingEnabled')->default(0);
             $table->text('ipAddress');
+            $table->json('cidrIpAddress');
             $table->text('hostname');
-            $table->text('macAddress');
+            $table->text('macAddress')->nullable();
             $table->text('modelName');
             $table->text('vendorName');
             $table->text('deviceRole');
