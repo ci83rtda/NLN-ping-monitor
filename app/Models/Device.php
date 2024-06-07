@@ -15,6 +15,10 @@ class Device extends Model
     protected $keyType = 'string';
     public $incrementing = false;
 
+    protected $casts = [
+        'cidrIpAddress' => 'array'
+    ];
+
     protected static function boot()
     {
         parent::boot();
