@@ -35,7 +35,7 @@ class PingModemIP implements ShouldQueue
     {
 
 
-        $process = new Process(["/sbin/ping", "-c 1", escapeshellarg($this->IpAddress)]);
+        $process = new Process(["/usr/bin/ping", "-c 1", escapeshellarg($this->IpAddress)]);
         $process->run();
         $ping = $process->isSuccessful();
 
