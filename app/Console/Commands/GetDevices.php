@@ -51,7 +51,7 @@ class GetDevices extends Command
                 Device::updateOrCreate(
                     ['deviceId', $device->identification->id],
                     [
-                        'deviceId' => $device->identification->id,
+//                        'deviceId' => $device->identification->id,
                         'siteId' => $blackbox_device->siteId,
                         'status' => $device->overview->status == 'active' ? 1 : 0,
                         'ipAddress' => $device->ipAddress,

@@ -8,7 +8,7 @@ return new class extends Migration {
     public function up(): void
     {
         Schema::create('devices', function (Blueprint $table) {
-            $table->uuid()->primary();
+            $table->uuid('uuid')->primary();
             $table->uuid('deviceId')->index();
             $table->uuid('siteId')->index();
             $table->unsignedTinyInteger('status')->default(0);
