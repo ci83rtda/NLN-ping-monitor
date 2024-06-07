@@ -48,6 +48,8 @@ class GetDevices extends Command
             //!Device::where('deviceId', $device->identification->id)->count() && // removed from the if statement
             if ($blackbox_device->systemName == 'pi-monitor' ){
 
+                $addresses = $blackbox_device->interfaces[0]->addresses ?? [];
+
                 Device::updateOrCreate(
                     ['deviceId' => $device->identification->id],
                     [
@@ -55,7 +57,7 @@ class GetDevices extends Command
                         'siteId' => $blackbox_device->siteId,
                         'status' => $device->overview->status == 'active' ? 1 : 0,
                         'ipAddress' => $device->ipAddress,
-                        'cidrIpAddress' => $blackbox_device->interfaces[0]->addresses,
+                        'cidrIpAddress' => $addresses,
                         'macAddress' => $blackbox_device->macAddress,
                         'hostname' => $blackbox_device->hostname,
                         'modelName' => $blackbox_device->modelName,
