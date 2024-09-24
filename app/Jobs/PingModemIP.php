@@ -38,6 +38,7 @@ class PingModemIP implements ShouldQueue
         $process = new Process(["/usr/bin/ping", "-c 1", $this->IpAddress]);
         $process->run();
         $ping = $process->isSuccessful();
+        dd($process->getOutput());
 
         \Log::info("checking {$this->IpAddress}, response {$ping}");
 
