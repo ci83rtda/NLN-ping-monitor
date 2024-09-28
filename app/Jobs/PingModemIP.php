@@ -42,11 +42,11 @@ class PingModemIP implements ShouldQueue
             $ping = $process->isSuccessful();
             //dd($process->getOutput());
 
-            Log::info("checking {$this->IpAddress}, response {$ping}");
-            Log::info("output ".json_encode($process->getOutput()));
+//            Log::info("checking {$this->IpAddress}, response {$ping}");
+//            Log::info("output ".json_encode($process->getOutput()));
 
             if($this->deviceData['status'] != $ping){
-                \Log::info("we update...");
+//                \Log::info("we update...");
                 $device = Device::where('uuid', $this->deviceData['uuid'])->first();
                 $device->update(['query_date' => now()]);
 
@@ -86,14 +86,14 @@ class PingModemIP implements ShouldQueue
                 ];
 
                 $response = $client->request('PUT', "devices/blackboxes/{$device->deviceId}/config", ['json' => $data]);
-                \Log::info(json_encode($response->getBody()->getContents()));
+//                \Log::info(json_encode($response->getBody()->getContents()));
                 $device->update(['status' => (boolean) $ping]);
 
             }
 
         } catch (\Exception $e) {
             // Log the exception
-            Log::error('PingModemIP job failed: ' . $e->getMessage());
+//            Log::error('PingModemIP job failed: ' . $e->getMessage());
 
             // Optionally rethrow the exception if you want to trigger a retry
             //throw $e;
