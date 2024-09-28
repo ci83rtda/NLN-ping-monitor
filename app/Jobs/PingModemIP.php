@@ -11,6 +11,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\Process\Process;
 
 class PingModemIP implements ShouldQueue
@@ -38,9 +39,9 @@ class PingModemIP implements ShouldQueue
         $process = new Process(["/usr/bin/ping", "-c 1", $this->IpAddress]);
         $process->run();
         $ping = $process->isSuccessful();
-        dd($process->getOutput());
+        //dd($process->getOutput());
 
-        \Log::info("checking {$this->IpAddress}, response {$ping}");
+        //Log::info("checking {$this->IpAddress}, response {$ping}");
 
         if($this->deviceData['status'] != $ping){
             \Log::info("we update...");
