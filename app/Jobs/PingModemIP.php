@@ -84,7 +84,8 @@ class PingModemIP implements ShouldQueue
                     ]
                 ];
 
-                $client->request('PUT', "devices/blackboxes/{$device->deviceId}/config", ['json' => $data]);
+                $response = $client->request('PUT', "devices/blackboxes/{$device->deviceId}/config", ['json' => $data]);
+                \Log::info(json_encode($response->getBody()->getContents()));
                 $device->update(['status' => (boolean) $ping]);
 
             }
