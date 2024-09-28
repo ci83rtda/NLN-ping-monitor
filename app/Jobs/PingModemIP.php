@@ -42,7 +42,7 @@ class PingModemIP implements ShouldQueue
             $ping = $process->isSuccessful();
             //dd($process->getOutput());
 
-            //Log::info("checking {$this->IpAddress}, response {$ping}");
+            Log::info("checking {$this->IpAddress}, response {$ping}");
 
             if($this->deviceData['status'] != $ping){
                 \Log::info("we update...");
