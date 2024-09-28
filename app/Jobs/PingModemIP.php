@@ -35,57 +35,66 @@ class PingModemIP implements ShouldQueue
     public function handle(): void
     {
 
+        try {
 
-        $process = new Process(["/usr/bin/ping", "-c 1", $this->IpAddress]);
-        $process->run();
-        $ping = $process->isSuccessful();
-        //dd($process->getOutput());
+            $process = new Process(["/usr/bin/ping", "-c 1", $this->IpAddress]);
+            $process->run();
+            $ping = $process->isSuccessful();
+            //dd($process->getOutput());
 
-        //Log::info("checking {$this->IpAddress}, response {$ping}");
+            //Log::info("checking {$this->IpAddress}, response {$ping}");
 
-        if($this->deviceData['status'] != $ping){
-            \Log::info("we update...");
-            $device = Device::where('uuid', $this->deviceData['uuid'])->first();
-            $device->update(['query_date' => now()]);
+            if($this->deviceData['status'] != $ping){
+                \Log::info("we update...");
+                $device = Device::where('uuid', $this->deviceData['uuid'])->first();
+                $device->update(['query_date' => now()]);
 
-            $client = new Client([
-                'base_uri' => config('services.uisp.url'),
-                'headers' => ['x-auth-token' => config('services.uisp.token')]
-            ]);
+                $client = new Client([
+                    'base_uri' => config('services.uisp.url'),
+                    'headers' => ['x-auth-token' => config('services.uisp.token')]
+                ]);
 
-            $data = [
-                "deviceId" => $device->deviceId,
-                "hostname" => $device->hostname,
-                "modelName" => $device->modelName,
-                "systemName" => "pi-monitor",
-                "vendorName" => $device->vendorName,
-                "ipAddress" => $device->ipAddress,
-                "macAddress" => $device->macAddress,
-                "deviceRole" => $device->deviceRole,
-                "siteId" => $device->siteId,
-                "pingEnabled" => !($ping == 1),
-                "ubntDevice" => false,
-                "ubntData" => [
-                    "firmwareVersion" => "0",
-                    "model" => "blackbox"
-                ],
-                "snmpCommunity" => "public",
-                "note" => "Fiber CPE",
-                "interfaces" => [
-                    [
-                        "id" => "eth0",
-                        "position" => 0,
-                        "name" => "eth1",
-                        "mac" => $device->macAddress,
-                        "type" => "eth",
-                        "addresses" => $device->cidrIpAddress
+                $data = [
+                    "deviceId" => $device->deviceId,
+                    "hostname" => $device->hostname,
+                    "modelName" => $device->modelName,
+                    "systemName" => "pi-monitor",
+                    "vendorName" => $device->vendorName,
+                    "ipAddress" => $device->ipAddress,
+                    "macAddress" => $device->macAddress,
+                    "deviceRole" => $device->deviceRole,
+                    "siteId" => $device->siteId,
+                    "pingEnabled" => !($ping == 1),
+                    "ubntDevice" => false,
+                    "ubntData" => [
+                        "firmwareVersion" => "0",
+                        "model" => "blackbox"
+                    ],
+                    "snmpCommunity" => "public",
+                    "note" => "Fiber CPE",
+                    "interfaces" => [
+                        [
+                            "id" => "eth0",
+                            "position" => 0,
+                            "name" => "eth1",
+                            "mac" => $device->macAddress,
+                            "type" => "eth",
+                            "addresses" => $device->cidrIpAddress
+                        ]
                     ]
-                ]
-            ];
+                ];
 
-            $client->request('PUT', "devices/blackboxes/{$device->deviceId}/config", ['json' => $data]);
-            $device->update(['status' => (boolean) $ping]);
+                $client->request('PUT', "devices/blackboxes/{$device->deviceId}/config", ['json' => $data]);
+                $device->update(['status' => (boolean) $ping]);
 
+            }
+
+        } catch (\Exception $e) {
+            // Log the exception
+            Log::error('PingModemIP job failed: ' . $e->getMessage());
+
+            // Optionally rethrow the exception if you want to trigger a retry
+            //throw $e;
         }
     }
 }
