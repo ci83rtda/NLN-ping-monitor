@@ -36,6 +36,10 @@ class PingModemIP implements ShouldQueue
     {
 
         try {
+            $device = Device::where('uuid', $this->deviceData['uuid'])->first();
+            if (is_null($device)) {
+                return;
+            }
 
             $process = new Process(["/usr/bin/ping", "-c 1", $this->IpAddress]);
             $process->run();
@@ -47,7 +51,7 @@ class PingModemIP implements ShouldQueue
 
             if($this->deviceData['status'] != $ping){
 //                \Log::info("we update...");
-                $device = Device::where('uuid', $this->deviceData['uuid'])->first();
+
                 $device->update(['query_date' => now()]);
 
                 $client = new Client([
