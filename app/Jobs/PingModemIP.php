@@ -19,7 +19,7 @@ class PingModemIP implements ShouldQueue, ShouldBeUnique
     public int $deviceRowId;
     public int $uniqueFor = 240; // 4 minutes
 
-    public function __construct(int $deviceRowId)
+    public function __construct(string $deviceRowId)
     {
         $this->deviceRowId = $deviceRowId;
     }
