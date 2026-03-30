@@ -27,7 +27,7 @@ class CheckPendingJobs extends Command
     public function handle()
     {
         $count = DB::table('jobs')->whereNull('reserved_at')->count();
-        $this->info($count . ' jobs are pending in the queue.');
+//        $this->info($count . ' jobs are pending in the queue.');
 
         if ($count > 0) {
             $jobs = DB::table('jobs')->whereNull('reserved_at')->get();

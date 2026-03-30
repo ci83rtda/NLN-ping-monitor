@@ -16,7 +16,7 @@ class Kernel extends ConsoleKernel
     {
         // $schedule->command('inspire')->hourly();
         $schedule->command(GetDevices::class)->cron('0 0,6,12,18 * * *')->timezone('America/Bogota');
-        $schedule->command(PingDevices::class)->everyMinute();
+        $schedule->command(PingDevices::class)->everyfiveMinutes();
     }
 
     /**

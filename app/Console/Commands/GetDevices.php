@@ -51,7 +51,7 @@ class GetDevices extends Command
                 $addresses = $blackbox_device->interfaces[0]->addresses ?? [];
 
                 Device::updateOrCreate(
-                    ['deviceId' => $device->identification->id],
+                    ['deviceId' => $device->identification->id, 'siteId' => $device->identification->site->id],
                     [
                         'deviceId' => $device->identification->id,
                         'siteId' => $blackbox_device->siteId,
@@ -83,7 +83,7 @@ class GetDevices extends Command
 //
 //
 //                ]);
-                $this->info("added");
+//                $this->info("added");
             }
 
         }

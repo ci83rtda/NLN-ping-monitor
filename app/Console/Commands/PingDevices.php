@@ -35,6 +35,6 @@ class PingDevices extends Command
          foreach ($devices as $device){
              PingModemIP::dispatch($device->ipAddress, $device->toArray())->onQueue('monitor');
          }
-        $this->info("All Set!");
+//        $this->info("All Set!");
     }
 }

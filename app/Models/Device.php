@@ -4,11 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 use Ramsey\Uuid\Uuid;
 
 class Device extends Model
 {
-    use HasFactory;
+//    use HasFactory;
 
     protected $guarded = [];
     protected $primaryKey = 'uuid';
@@ -25,5 +26,6 @@ class Device extends Model
         static::creating(function (Model $model) {
             $model->setAttribute($model->getKeyName(), Uuid::uuid4());
         });
+//        DB::table()->delete();
     }
 }
