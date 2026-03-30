@@ -35,7 +35,7 @@ class PingModemIP implements ShouldQueue
     {
 
         try {
-            $device = Device::where('uuid', $this->deviceData['uuid'])->first();
+            $device = Device::where('ipAddress', $this->IpAddress)->first();
             if (is_null($device)) {
                 return;
             }
