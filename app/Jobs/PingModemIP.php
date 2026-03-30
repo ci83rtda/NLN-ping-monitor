@@ -142,7 +142,7 @@ class PingModemIP implements ShouldQueue, ShouldBeUnique
                 'pingEnabled' => $data['pingEnabled'],
             ]);
         } catch (\Throwable $e) {
-            \Log::error('PingModemIP job failed [$device->ipAddress]', [
+            \Log::error("PingModemIP job failed [{$device->ipAddress}]", [
                 'deviceId' => $this->deviceId,
                 'message' => $e->getMessage(),
             ]);
