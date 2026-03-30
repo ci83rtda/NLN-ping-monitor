@@ -16,23 +16,29 @@ class PingModemIP implements ShouldQueue, ShouldBeUnique
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public string $deviceRowId;
-    public int $uniqueFor = 240; // 4 minutes
+    public string $deviceId;
+    public int $uniqueFor = 240; // prevent overlap for 4 minutes
 
-    public function __construct(string $deviceRowId)
+    /**
+     * Create a new job instance.
+     */
+    public function __construct(string $deviceId)
     {
-        $this->deviceRowId = $deviceRowId;
+        $this->deviceId = $deviceId;
     }
 
     public function uniqueId(): string
     {
-        return (string) $this->deviceRowId;
+        return $this->deviceId;
     }
 
+    /**
+     * Execute the job.
+     */
     public function handle(): void
     {
         try {
-            $device = Device::find($this->deviceRowId);
+            $device = Device::where('deviceId', $this->deviceId)->first();
 
             if (! $device || empty($device->ipAddress) || empty($device->deviceId)) {
                 return;
@@ -50,12 +56,12 @@ class PingModemIP implements ShouldQueue, ShouldBeUnique
 
             $ping = $process->isSuccessful() ? 1 : 0;
 
-            // Always update last check time
+            // always store last check time
             $device->update([
                 'query_date' => now(),
             ]);
 
-            // Compare against CURRENT db value, not stale queued data
+            // compare against CURRENT database status
             if ((int) $device->status === (int) $ping) {
                 return;
             }
@@ -68,23 +74,22 @@ class PingModemIP implements ShouldQueue, ShouldBeUnique
                 'timeout' => 10,
             ]);
 
-            /*
-             * Very important:
-             * Fetch latest config from UISP first so we use the CURRENT siteId
-             * and do not overwrite a device that was moved to another client/site.
-             */
-            $response = $client->request('GET', "devices/blackboxes/{$device->deviceId}/config");
+            // fetch latest UISP config first to avoid stale siteId pushbacks
+            $response = $client->request(
+                'GET',
+                "devices/blackboxes/{$device->deviceId}/config"
+            );
+
             $remoteConfig = json_decode($response->getBody()->getContents(), true);
 
             if (! is_array($remoteConfig)) {
                 \Log::warning('PingModemIP: invalid UISP config response', [
-                    'device_row_id' => $this->deviceRowId,
-                    'deviceId' => $device->deviceId,
+                    'deviceId' => $this->deviceId,
                 ]);
                 return;
             }
 
-            // Keep local DB siteId synced to the latest UISP siteId
+            // sync local siteId to current UISP siteId
             if (isset($remoteConfig['siteId']) && $device->siteId != $remoteConfig['siteId']) {
                 $device->update([
                     'siteId' => $remoteConfig['siteId'],
@@ -92,10 +97,7 @@ class PingModemIP implements ShouldQueue, ShouldBeUnique
                 $device->siteId = $remoteConfig['siteId'];
             }
 
-            /*
-             * Use the latest UISP config as the base payload, then only override
-             * the fields you control.
-             */
+            // use current UISP config as the base
             $data = $remoteConfig;
 
             $data['deviceId'] = $device->deviceId;
@@ -106,15 +108,9 @@ class PingModemIP implements ShouldQueue, ShouldBeUnique
             $data['ipAddress'] = $device->ipAddress;
             $data['macAddress'] = $device->macAddress;
             $data['deviceRole'] = $device->deviceRole;
-
-            // Use current UISP siteId, not stale local siteId
             $data['siteId'] = $remoteConfig['siteId'] ?? $device->siteId;
 
-            /*
-             * Your workaround:
-             * - if ping succeeds => pingEnabled false
-             * - if ping fails    => pingEnabled true
-             */
+            // your UISP workaround
             $data['pingEnabled'] = ! ((int) $ping === 1);
 
             $data['ubntDevice'] = false;
@@ -124,7 +120,6 @@ class PingModemIP implements ShouldQueue, ShouldBeUnique
             ];
             $data['snmpCommunity'] = 'public';
             $data['note'] = 'Fiber CPE';
-
             $data['interfaces'] = [
                 [
                     'id' => 'eth0',
@@ -146,10 +141,9 @@ class PingModemIP implements ShouldQueue, ShouldBeUnique
                 'status' => (bool) $ping,
                 'pingEnabled' => $data['pingEnabled'],
             ]);
-
         } catch (\Throwable $e) {
             \Log::error('PingModemIP job failed', [
-                'device_row_id' => $this->deviceRowId,
+                'deviceId' => $this->deviceId,
                 'message' => $e->getMessage(),
             ]);
         }

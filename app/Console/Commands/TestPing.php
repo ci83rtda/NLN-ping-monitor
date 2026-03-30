@@ -9,23 +9,10 @@ use Symfony\Component\Process\Process;
 
 class TestPing extends Command
 {
-    /**
-     * The name and signature of the console command.
-     *
-     * @var string
-     */
     protected $signature = 'app:test-ping';
 
-    /**
-     * The console command description.
-     *
-     * @var string
-     */
     protected $description = 'Test a single device ping and optionally update UISP and the local DB';
 
-    /**
-     * Execute the console command.
-     */
     public function handle()
     {
         $ipAddress = trim($this->ask('What is your IP?'));
@@ -83,7 +70,7 @@ class TestPing extends Command
 
             $this->line('----------------------------------------');
             $this->info('Ping + update test');
-            $this->line('DB row id: ' . $device->id);
+            $this->line('Device UUID: ' . $device->uuid);
             $this->line('Device ID: ' . $device->deviceId);
             $this->line('IP: ' . $ipAddress);
             $this->line('Current DB status: ' . (int) $device->status);
@@ -96,7 +83,6 @@ class TestPing extends Command
             $this->line(trim($process->getErrorOutput()) ?: '[empty]');
             $this->line('----------------------------------------');
 
-            // always update last query time
             $device->update([
                 'query_date' => now(),
             ]);
@@ -116,7 +102,6 @@ class TestPing extends Command
                 'timeout' => 10,
             ]);
 
-            // Fetch latest UISP config first to avoid pushing stale siteId
             $response = $client->request(
                 'GET',
                 "devices/blackboxes/{$device->deviceId}/config"
@@ -132,7 +117,6 @@ class TestPing extends Command
             $this->line('UISP current siteId: ' . ($remoteConfig['siteId'] ?? '[missing]'));
             $this->line('Local DB siteId: ' . ($device->siteId ?? '[missing]'));
 
-            // Keep local DB in sync if UISP has a different siteId
             if (isset($remoteConfig['siteId']) && $device->siteId != $remoteConfig['siteId']) {
                 $device->update([
                     'siteId' => $remoteConfig['siteId'],
@@ -184,10 +168,12 @@ class TestPing extends Command
                 'query_date' => now(),
             ]);
 
+            $fresh = $device->fresh();
+
             $this->info('UISP update completed.');
             $this->line('PUT HTTP status: ' . $putResponse->getStatusCode());
-            $this->line('New DB status: ' . (int) $device->fresh()->status);
-            $this->line('New DB pingEnabled: ' . (int) $device->fresh()->pingEnabled);
+            $this->line('New DB status: ' . (int) $fresh->status);
+            $this->line('New DB pingEnabled: ' . (int) $fresh->pingEnabled);
 
             return self::SUCCESS;
         } catch (\Throwable $e) {

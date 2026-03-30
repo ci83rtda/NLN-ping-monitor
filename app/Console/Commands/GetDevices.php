@@ -8,10 +8,23 @@ use Illuminate\Console\Command;
 
 class GetDevices extends Command
 {
+    /**
+     * The name and signature of the console command.
+     *
+     * @var string
+     */
     protected $signature = 'app:get-devices';
 
+    /**
+     * The console command description.
+     *
+     * @var string
+     */
     protected $description = 'Get all third-party blackbox router devices and sync them locally';
 
+    /**
+     * Execute the console command.
+     */
     public function handle()
     {
         $client = new Client([
@@ -33,27 +46,27 @@ class GetDevices extends Command
                 "devices/blackboxes/{$device->identification->id}/config"
             );
 
-            $blackbox_device = json_decode($response->getBody()->getContents());
+            $blackboxDevice = json_decode($response->getBody()->getContents());
 
-            if (($blackbox_device->systemName ?? null) !== 'pi-monitor') {
+            if (($blackboxDevice->systemName ?? null) !== 'pi-monitor') {
                 continue;
             }
 
-            $addresses = $blackbox_device->interfaces[0]->addresses ?? [];
+            $addresses = $blackboxDevice->interfaces[0]->addresses ?? [];
 
             Device::updateOrCreate(
                 ['deviceId' => $device->identification->id],
                 [
-                    'siteId' => $blackbox_device->siteId,
+                    'siteId' => $blackboxDevice->siteId,
                     'status' => $device->overview->status == 'active' ? 1 : 0,
                     'ipAddress' => $device->ipAddress,
                     'cidrIpAddress' => $addresses,
-                    'macAddress' => $blackbox_device->macAddress,
-                    'hostname' => $blackbox_device->hostname,
-                    'modelName' => $blackbox_device->modelName,
-                    'vendorName' => $blackbox_device->vendorName,
-                    'deviceRole' => $blackbox_device->deviceRole,
-                    'pingEnabled' => $blackbox_device->pingEnabled,
+                    'macAddress' => $blackboxDevice->macAddress,
+                    'hostname' => $blackboxDevice->hostname,
+                    'modelName' => $blackboxDevice->modelName,
+                    'vendorName' => $blackboxDevice->vendorName,
+                    'deviceRole' => $blackboxDevice->deviceRole,
+                    'pingEnabled' => $blackboxDevice->pingEnabled,
                 ]
             );
 
