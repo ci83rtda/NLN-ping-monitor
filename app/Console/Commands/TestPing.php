@@ -53,11 +53,15 @@ class TestPing extends Command
                 $ping = $process->isSuccessful() == 1 ? 1 : 0;
                 //dd($process->getOutput());
 
+                $this->info('Output: '.$process->getOutput());
+                $this->info('isSuccessful:  '.$process->isSuccessful());
+                $this->info('IP:  '.$IpAddress);
+
 //            Log::info("checking {$this->IpAddress}, response {$ping}");
 //            Log::info("output ".json_encode($process->getOutput()));
 
                 if($device->status != $ping){
-                    \Log::info("we update... {$IpAddress}");
+                    $this->info("we update... {$IpAddress}");
 
                     //$device->update(['query_date' => now()]);
 
@@ -104,7 +108,7 @@ class TestPing extends Command
 
             } catch (\Exception $e) {
                 // Log the exception
-            \Log::error('PingModemIP job failed: ' . $e->getMessage());
+                $this->error('PingModemIP job failed: ' . $e->getMessage());
 
                 // Optionally rethrow the exception if you want to trigger a retry
                 //throw $e;
