@@ -16,7 +16,7 @@ class PingModemIP implements ShouldQueue, ShouldBeUnique
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public int $deviceRowId;
+    public string $deviceRowId;
     public int $uniqueFor = 240; // 4 minutes
 
     public function __construct(string $deviceRowId)
