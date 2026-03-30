@@ -29,12 +29,18 @@ class PingDevices extends Command
      */
     public function handle()
     {
-         $devices = Device::all();
+//         $devices = Device::all();
 //         $devices = Device::where('ipAddress', '172.16.42.6')->get();
 
-         foreach ($devices as $device){
-             PingModemIP::dispatch($device->ipAddress, $device->toArray())->onQueue('monitor');
-         }
+//         foreach ($devices as $device){
+//             PingModemIP::dispatch($device->ipAddress, $device->toArray())->onQueue('monitor');
+//         }
+
+        Device::select('uuid')->chunkById(500, function ($devices) {
+            foreach ($devices as $device) {
+                PingModemIP::dispatch($device->uuid)->onQueue('monitor');
+            }
+        });
 //        $this->info("All Set!");
     }
 }

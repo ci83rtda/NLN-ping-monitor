@@ -15,8 +15,8 @@ class Kernel extends ConsoleKernel
     protected function schedule(Schedule $schedule): void
     {
         // $schedule->command('inspire')->hourly();
-        $schedule->command(GetDevices::class)->cron('0 0,6,12,18 * * *')->timezone('America/Bogota');
-        $schedule->command(PingDevices::class)->everyfiveMinutes();
+        $schedule->command(GetDevices::class)->cron('0 0,6,12,18 * * *')->timezone('America/Bogota')->withoutOverlapping();
+        $schedule->command(PingDevices::class)->everyfiveMinutes()->withoutOverlapping();
     }
 
     /**

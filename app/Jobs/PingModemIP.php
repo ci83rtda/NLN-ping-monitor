@@ -3,7 +3,6 @@
 namespace App\Jobs;
 
 use App\Models\Device;
-use App\Services\Ping;
 use GuzzleHttp\Client;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -13,93 +12,146 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Symfony\Component\Process\Process;
 
-class PingModemIP implements ShouldQueue
+class PingModemIP implements ShouldQueue, ShouldBeUnique
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public $IpAddress;
-    public $deviceData;
-    /**
-     * Create a new job instance.
-     */
-    public function __construct($IpAddress, $deviceData)
+    public int $deviceRowId;
+    public int $uniqueFor = 240; // 4 minutes
+
+    public function __construct(int $deviceRowId)
     {
-        $this->IpAddress = $IpAddress;
-        $this->deviceData = $deviceData;
+        $this->deviceRowId = $deviceRowId;
     }
 
-    /**
-     * Execute the job.
-     */
+    public function uniqueId(): string
+    {
+        return (string) $this->deviceRowId;
+    }
+
     public function handle(): void
     {
-
         try {
-            $device = Device::where('ipAddress', $this->IpAddress)->first();
-            if (is_null($device)) {
+            $device = Device::find($this->deviceRowId);
+
+            if (! $device || empty($device->ipAddress) || empty($device->deviceId)) {
                 return;
             }
 
-            $process = new Process(["/usr/bin/ping", "-c 1", $this->IpAddress]);
+            $process = new Process([
+                '/usr/bin/ping',
+                '-c', '1',
+                '-W', '2',
+                $device->ipAddress,
+            ]);
+
+            $process->setTimeout(5);
             $process->run();
-            $ping = $process->isSuccessful() == 1 ? 1 : 0;
-            //dd($process->getOutput());
 
-//            \Log::info("checking {$this->IpAddress}, response {$ping}");
-//            \Log::info("output ".json_encode($process->getOutput()));
+            $ping = $process->isSuccessful() ? 1 : 0;
 
-            if($this->deviceData['status'] != $ping){
-//                \Log::info("we update... {$this->IpAddress}");
+            // Always update last check time
+            $device->update([
+                'query_date' => now(),
+            ]);
 
-                $device->update(['query_date' => now()]);
-
-                $client = new Client([
-                    'base_uri' => config('services.uisp.url'),
-                    'headers' => ['x-auth-token' => config('services.uisp.token')]
-                ]);
-
-                $data = [
-                    "deviceId" => $device->deviceId,
-                    "hostname" => $device->hostname,
-                    "modelName" => $device->modelName,
-                    "systemName" => "pi-monitor",
-                    "vendorName" => $device->vendorName,
-                    "ipAddress" => $device->ipAddress,
-                    "macAddress" => $device->macAddress,
-                    "deviceRole" => $device->deviceRole,
-                    "siteId" => $device->siteId,
-                    "pingEnabled" => !($ping == 1),
-                    "ubntDevice" => false,
-                    "ubntData" => [
-                        "firmwareVersion" => "0",
-                        "model" => "blackbox"
-                    ],
-                    "snmpCommunity" => "public",
-                    "note" => "Fiber CPE",
-                    "interfaces" => [
-                        [
-                            "id" => "eth0",
-                            "position" => 0,
-                            "name" => "eth1",
-                            "mac" => $device->macAddress,
-                            "type" => "eth",
-                            "addresses" => $device->cidrIpAddress
-                        ]
-                    ]
-                ];
-
-                $response = $client->request('PUT', "devices/blackboxes/{$device->deviceId}/config", ['json' => $data]);
-//                \Log::info(json_encode($response->getBody()->getContents()));
-                $device->update(['status' => (boolean) $ping]);
-
+            // Compare against CURRENT db value, not stale queued data
+            if ((int) $device->status === (int) $ping) {
+                return;
             }
 
-        } catch (\Exception $e) {
-            // Log the exception
-            \Log::error('PingModemIP job failed: ' . $e->getMessage());
+            $client = new Client([
+                'base_uri' => config('services.uisp.url'),
+                'headers' => [
+                    'x-auth-token' => config('services.uisp.token'),
+                ],
+                'timeout' => 10,
+            ]);
 
-            // Optionally rethrow the exception if you want to trigger a retry
-            //throw $e;
+            /*
+             * Very important:
+             * Fetch latest config from UISP first so we use the CURRENT siteId
+             * and do not overwrite a device that was moved to another client/site.
+             */
+            $response = $client->request('GET', "devices/blackboxes/{$device->deviceId}/config");
+            $remoteConfig = json_decode($response->getBody()->getContents(), true);
+
+            if (! is_array($remoteConfig)) {
+                \Log::warning('PingModemIP: invalid UISP config response', [
+                    'device_row_id' => $this->deviceRowId,
+                    'deviceId' => $device->deviceId,
+                ]);
+                return;
+            }
+
+            // Keep local DB siteId synced to the latest UISP siteId
+            if (isset($remoteConfig['siteId']) && $device->siteId != $remoteConfig['siteId']) {
+                $device->update([
+                    'siteId' => $remoteConfig['siteId'],
+                ]);
+                $device->siteId = $remoteConfig['siteId'];
+            }
+
+            /*
+             * Use the latest UISP config as the base payload, then only override
+             * the fields you control.
+             */
+            $data = $remoteConfig;
+
+            $data['deviceId'] = $device->deviceId;
+            $data['hostname'] = $device->hostname;
+            $data['modelName'] = $device->modelName;
+            $data['systemName'] = 'pi-monitor';
+            $data['vendorName'] = $device->vendorName;
+            $data['ipAddress'] = $device->ipAddress;
+            $data['macAddress'] = $device->macAddress;
+            $data['deviceRole'] = $device->deviceRole;
+
+            // Use current UISP siteId, not stale local siteId
+            $data['siteId'] = $remoteConfig['siteId'] ?? $device->siteId;
+
+            /*
+             * Your workaround:
+             * - if ping succeeds => pingEnabled false
+             * - if ping fails    => pingEnabled true
+             */
+            $data['pingEnabled'] = ! ((int) $ping === 1);
+
+            $data['ubntDevice'] = false;
+            $data['ubntData'] = [
+                'firmwareVersion' => '0',
+                'model' => 'blackbox',
+            ];
+            $data['snmpCommunity'] = 'public';
+            $data['note'] = 'Fiber CPE';
+
+            $data['interfaces'] = [
+                [
+                    'id' => 'eth0',
+                    'position' => 0,
+                    'name' => 'eth1',
+                    'mac' => $device->macAddress,
+                    'type' => 'eth',
+                    'addresses' => $device->cidrIpAddress,
+                ]
+            ];
+
+            $client->request(
+                'PUT',
+                "devices/blackboxes/{$device->deviceId}/config",
+                ['json' => $data]
+            );
+
+            $device->update([
+                'status' => (bool) $ping,
+                'pingEnabled' => $data['pingEnabled'],
+            ]);
+
+        } catch (\Throwable $e) {
+            \Log::error('PingModemIP job failed', [
+                'device_row_id' => $this->deviceRowId,
+                'message' => $e->getMessage(),
+            ]);
         }
     }
 }

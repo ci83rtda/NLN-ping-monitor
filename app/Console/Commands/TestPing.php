@@ -21,102 +21,178 @@ class TestPing extends Command
      *
      * @var string
      */
-    protected $description = 'Command description';
+    protected $description = 'Test a single device ping and optionally update UISP and the local DB';
 
     /**
      * Execute the console command.
      */
     public function handle()
     {
-        $IpAddress = $this->ask('What is your IP?');
+        $ipAddress = trim($this->ask('What is your IP?'));
+        $update = $this->choice('Update UISP and the DB?', ['yes', 'no'], 'no');
 
-        $update = $this->choice('Update the DB?', ['yes', 'no']);
-
-        if($update != 'yes') {
-
-            $process = new Process(["/usr/bin/ping", "-c 1", $IpAddress]);
-            $process->run();
-            $this->info('Output: '.$process->getOutput());
-            $this->info('isSuccessful:  '.$process->isSuccessful());
-            $this->info('IP:  '.$IpAddress);
-
-        }else{
-
-            try {
-                $device = Device::where('ipAddress', $IpAddress)->first();
-                if (is_null($device)) {
-                    return;
-                }
-
-                $process = new Process(["/usr/bin/ping", "-c 1", $IpAddress]);
-                $process->run();
-                $ping = $process->isSuccessful() == 1 ? 1 : 0;
-                //dd($process->getOutput());
-
-                $this->info('Output: '.$process->getOutput());
-                $this->info('isSuccessful:  '.$process->isSuccessful());
-                $this->info('IP:  '.$IpAddress);
-
-//            Log::info("checking {$this->IpAddress}, response {$ping}");
-//            Log::info("output ".json_encode($process->getOutput()));
-
-                if($device->status != $ping){
-                    $this->info("we update... {$IpAddress}");
-
-                    //$device->update(['query_date' => now()]);
-
-                    $client = new Client([
-                        'base_uri' => config('services.uisp.url'),
-                        'headers' => ['x-auth-token' => config('services.uisp.token')]
-                    ]);
-
-                    $data = [
-                        "deviceId" => $device->deviceId,
-                        "hostname" => $device->hostname,
-                        "modelName" => $device->modelName,
-                        "systemName" => "pi-monitor",
-                        "vendorName" => $device->vendorName,
-                        "ipAddress" => $device->ipAddress,
-                        "macAddress" => $device->macAddress,
-                        "deviceRole" => $device->deviceRole,
-                        "siteId" => $device->siteId,
-                        "pingEnabled" => !($ping == 1),
-                        "ubntDevice" => false,
-                        "ubntData" => [
-                            "firmwareVersion" => "0",
-                            "model" => "blackbox"
-                        ],
-                        "snmpCommunity" => "public",
-                        "note" => "Fiber CPE",
-                        "interfaces" => [
-                            [
-                                "id" => "eth0",
-                                "position" => 0,
-                                "name" => "eth1",
-                                "mac" => $device->macAddress,
-                                "type" => "eth",
-                                "addresses" => $device->cidrIpAddress
-                            ]
-                        ]
-                    ];
-
-                    $response = $client->request('PUT', "devices/blackboxes/{$device->deviceId}/config", ['json' => $data]);
-//                \Log::info(json_encode($response->getBody()->getContents()));
-                    $device->update(['status' => (boolean) $ping, 'query_date' => now()]);
-
-                }
-
-            } catch (\Exception $e) {
-                // Log the exception
-                $this->error('PingModemIP job failed: ' . $e->getMessage());
-
-                // Optionally rethrow the exception if you want to trigger a retry
-                //throw $e;
-            }
-
+        if (empty($ipAddress)) {
+            $this->error('IP address is required.');
+            return self::FAILURE;
         }
 
+        if ($update !== 'yes') {
+            $process = new Process([
+                '/usr/bin/ping',
+                '-c', '1',
+                '-W', '2',
+                $ipAddress,
+            ]);
 
+            $process->setTimeout(5);
+            $process->run();
 
+            $this->line('----------------------------------------');
+            $this->info('Ping-only test');
+            $this->line('IP: ' . $ipAddress);
+            $this->line('Exit code: ' . $process->getExitCode());
+            $this->line('Successful: ' . ($process->isSuccessful() ? 'yes' : 'no'));
+            $this->line('STDOUT:');
+            $this->line(trim($process->getOutput()) ?: '[empty]');
+            $this->line('STDERR:');
+            $this->line(trim($process->getErrorOutput()) ?: '[empty]');
+            $this->line('----------------------------------------');
+
+            return self::SUCCESS;
+        }
+
+        try {
+            $device = Device::where('ipAddress', $ipAddress)->first();
+
+            if (is_null($device)) {
+                $this->error("No device found in DB with IP {$ipAddress}");
+                return self::FAILURE;
+            }
+
+            $process = new Process([
+                '/usr/bin/ping',
+                '-c', '1',
+                '-W', '2',
+                $ipAddress,
+            ]);
+
+            $process->setTimeout(5);
+            $process->run();
+
+            $ping = $process->isSuccessful() ? 1 : 0;
+
+            $this->line('----------------------------------------');
+            $this->info('Ping + update test');
+            $this->line('DB row id: ' . $device->id);
+            $this->line('Device ID: ' . $device->deviceId);
+            $this->line('IP: ' . $ipAddress);
+            $this->line('Current DB status: ' . (int) $device->status);
+            $this->line('Ping result: ' . $ping);
+            $this->line('Exit code: ' . $process->getExitCode());
+            $this->line('Successful: ' . ($process->isSuccessful() ? 'yes' : 'no'));
+            $this->line('STDOUT:');
+            $this->line(trim($process->getOutput()) ?: '[empty]');
+            $this->line('STDERR:');
+            $this->line(trim($process->getErrorOutput()) ?: '[empty]');
+            $this->line('----------------------------------------');
+
+            // always update last query time
+            $device->update([
+                'query_date' => now(),
+            ]);
+
+            if ((int) $device->status === (int) $ping) {
+                $this->info('No status change detected. No UISP update needed.');
+                return self::SUCCESS;
+            }
+
+            $this->warn("Status changed, updating UISP for {$ipAddress}...");
+
+            $client = new Client([
+                'base_uri' => config('services.uisp.url'),
+                'headers' => [
+                    'x-auth-token' => config('services.uisp.token'),
+                ],
+                'timeout' => 10,
+            ]);
+
+            // Fetch latest UISP config first to avoid pushing stale siteId
+            $response = $client->request(
+                'GET',
+                "devices/blackboxes/{$device->deviceId}/config"
+            );
+
+            $remoteConfig = json_decode($response->getBody()->getContents(), true);
+
+            if (! is_array($remoteConfig)) {
+                $this->error('Could not read valid UISP config response.');
+                return self::FAILURE;
+            }
+
+            $this->line('UISP current siteId: ' . ($remoteConfig['siteId'] ?? '[missing]'));
+            $this->line('Local DB siteId: ' . ($device->siteId ?? '[missing]'));
+
+            // Keep local DB in sync if UISP has a different siteId
+            if (isset($remoteConfig['siteId']) && $device->siteId != $remoteConfig['siteId']) {
+                $device->update([
+                    'siteId' => $remoteConfig['siteId'],
+                ]);
+                $device->siteId = $remoteConfig['siteId'];
+
+                $this->warn('Local DB siteId updated from UISP before PUT.');
+            }
+
+            $data = $remoteConfig;
+
+            $data['deviceId'] = $device->deviceId;
+            $data['hostname'] = $device->hostname;
+            $data['modelName'] = $device->modelName;
+            $data['systemName'] = 'pi-monitor';
+            $data['vendorName'] = $device->vendorName;
+            $data['ipAddress'] = $device->ipAddress;
+            $data['macAddress'] = $device->macAddress;
+            $data['deviceRole'] = $device->deviceRole;
+            $data['siteId'] = $remoteConfig['siteId'] ?? $device->siteId;
+            $data['pingEnabled'] = ! ((int) $ping === 1);
+            $data['ubntDevice'] = false;
+            $data['ubntData'] = [
+                'firmwareVersion' => '0',
+                'model' => 'blackbox',
+            ];
+            $data['snmpCommunity'] = 'public';
+            $data['note'] = 'Fiber CPE';
+            $data['interfaces'] = [
+                [
+                    'id' => 'eth0',
+                    'position' => 0,
+                    'name' => 'eth1',
+                    'mac' => $device->macAddress,
+                    'type' => 'eth',
+                    'addresses' => $device->cidrIpAddress,
+                ]
+            ];
+
+            $putResponse = $client->request(
+                'PUT',
+                "devices/blackboxes/{$device->deviceId}/config",
+                ['json' => $data]
+            );
+
+            $device->update([
+                'status' => (bool) $ping,
+                'pingEnabled' => $data['pingEnabled'],
+                'query_date' => now(),
+            ]);
+
+            $this->info('UISP update completed.');
+            $this->line('PUT HTTP status: ' . $putResponse->getStatusCode());
+            $this->line('New DB status: ' . (int) $device->fresh()->status);
+            $this->line('New DB pingEnabled: ' . (int) $device->fresh()->pingEnabled);
+
+            return self::SUCCESS;
+        } catch (\Throwable $e) {
+            $this->error('TestPing failed: ' . $e->getMessage());
+            return self::FAILURE;
+        }
     }
 }
