@@ -45,11 +45,11 @@ class PingModemIP implements ShouldQueue
             $ping = $process->isSuccessful() == 1 ? 1 : 0;
             //dd($process->getOutput());
 
-            \Log::info("checking {$this->IpAddress}, response {$ping}");
-            \Log::info("output ".json_encode($process->getOutput()));
+//            \Log::info("checking {$this->IpAddress}, response {$ping}");
+//            \Log::info("output ".json_encode($process->getOutput()));
 
             if($this->deviceData['status'] != $ping){
-                \Log::info("we update... {$this->IpAddress}");
+//                \Log::info("we update... {$this->IpAddress}");
 
                 $device->update(['query_date' => now()]);
 
@@ -89,7 +89,7 @@ class PingModemIP implements ShouldQueue
                 ];
 
                 $response = $client->request('PUT', "devices/blackboxes/{$device->deviceId}/config", ['json' => $data]);
-                \Log::info(json_encode($response->getBody()->getContents()));
+//                \Log::info(json_encode($response->getBody()->getContents()));
                 $device->update(['status' => (boolean) $ping]);
 
             }
